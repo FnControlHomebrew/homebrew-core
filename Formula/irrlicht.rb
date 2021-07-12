@@ -3,6 +3,7 @@ class Irrlicht < Formula
   homepage "https://irrlicht.sourceforge.io/"
   url "https://downloads.sourceforge.net/project/irrlicht/Irrlicht%20SDK/1.8/1.8.4/irrlicht-1.8.4.zip"
   sha256 "f42b280bc608e545b820206fe2a999c55f290de5c7509a02bdbeeccc1bf9e433"
+  revision 1
   head "https://svn.code.sf.net/p/irrlicht/code/trunk"
 
   livecheck do
@@ -45,8 +46,15 @@ class Irrlicht < Formula
 
       xcodebuild "-project", "source/Irrlicht/MacOSX/MacOSX.xcodeproj",
                  "-configuration", "Release",
+                 "-target", "IrrFramework",
+                 "SYMROOT=build"
+
+      xcodebuild "-project", "source/Irrlicht/MacOSX/MacOSX.xcodeproj",
+                 "-configuration", "Release",
                  "-target", "libIrrlicht.a",
                  "SYMROOT=build"
+
+      frameworks.install "source/Irrlicht/MacOSX/build/Release/IrrFramework.framework"
       lib.install "source/Irrlicht/MacOSX/build/Release/libIrrlicht.a"
       include.install "include" => "irrlicht"
     end
@@ -68,18 +76,33 @@ class Irrlicht < Formula
       lib.install "lib/Linux/libIrrlicht.a"
     end
 
-    on_linux do
-      (pkgshare/"examples").install "examples/01.HelloWorld"
-    end
+    (pkgshare/"examples").install "examples/01.HelloWorld"
   end
 
   test do
     on_macos do
       assert_match Hardware::CPU.arch.to_s, shell_output("lipo -info #{lib}/libIrrlicht.a")
     end
-    on_linux do
-      cp_r Dir["#{pkgshare}/examples/01.HelloWorld/*"], testpath
-      system ENV.cxx, "main.cpp", "-I#{include}/irrlicht", "-L#{lib}", "-lIrrlicht", "-o", "hello"
+
+    args = %W[
+      -I#{include}/irrlicht
+    ]
+    on_macos do
+      args += %W[
+        -F#{frameworks}
+        -framework IrrFramework
+        -framework OpenGL
+        -framework Cocoa
+        -framework IOKit
+      ]
     end
+    on_linux do
+      args += %W[
+        -L#{lib}
+        -lIrrlicht
+      ]
+    end
+    cp_r Dir["#{pkgshare}/examples/01.HelloWorld/*"], testpath
+    system ENV.cxx, "main.cpp", *args, "-o", "hello"
   end
 end
